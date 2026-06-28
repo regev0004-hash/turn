@@ -176,10 +176,10 @@ export default function BorderQueueMonitor() {
           </div>
         </div>
 
-        {/* Checkpoint Info */}
+        {/* Checkpoint Info with Statistics */}
         {info.name && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">{info.name}</h2>
                 <div className="space-y-3">
@@ -214,37 +214,38 @@ export default function BorderQueueMonitor() {
                 </button>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Statistics */}
-        {info.name && stats.total > 0 && (
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Статистика выезда</h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <p className="text-sm text-gray-600 mb-2">Всего авто в очереди</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
-                <p className="text-xs text-gray-500 mt-2">В системе сейчас</p>
-              </div>
-              
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <p className="text-sm text-gray-600 mb-2">Выехало в течении часа</p>
-                <p className="text-3xl font-bold text-green-600">{stats.exitedLastHour}</p>
-                <p className="text-xs text-gray-500 mt-2">За последний час</p>
-              </div>
-              
-              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                <p className="text-sm text-gray-600 mb-2">Выехало за сутки</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.exitedLastDay}</p>
-                <p className="text-xs text-gray-500 mt-2">За 24 часа</p>
-              </div>
-            </div>
-            
-            {stats.avgPerHour > 0 && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600 mb-2">Средний темп (за последние 5 часов)</p>
-                <p className="text-2xl font-bold text-indigo-600">{stats.avgPerHour} авто в час</p>
+            {/* Statistics */}
+            {stats.total > 0 && (
+              <div>
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Статистика выезда</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p className="text-sm text-gray-600 mb-2">Всего авто</p>
+                    <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
+                    <p className="text-xs text-gray-500 mt-2">В системе</p>
+                  </div>
+                  
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <p className="text-sm text-gray-600 mb-2">За час</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.exitedLastHour}</p>
+                    <p className="text-xs text-gray-500 mt-2">Выехало</p>
+                  </div>
+                  
+                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <p className="text-sm text-gray-600 mb-2">За сутки</p>
+                    <p className="text-2xl font-bold text-purple-600">{stats.exitedLastDay}</p>
+                    <p className="text-xs text-gray-500 mt-2">Выехало</p>
+                  </div>
+                  
+                  {stats.avgPerHour > 0 && (
+                    <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
+                      <p className="text-sm text-gray-600 mb-2">Средний темп</p>
+                      <p className="text-2xl font-bold text-indigo-600">{stats.avgPerHour}</p>
+                      <p className="text-xs text-gray-500 mt-2">авто/час</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
