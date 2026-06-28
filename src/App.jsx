@@ -175,7 +175,7 @@ export default function BorderQueueMonitor() {
           </div>
         </div>
 
-        {/* Checkpoint Info with Statistics */}
+        {/* Checkpoint Info */}
         {info.name && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
             <div className="grid md:grid-cols-2 gap-6">
@@ -198,43 +198,20 @@ export default function BorderQueueMonitor() {
               </div>
               <div className="flex flex-col justify-between">
                 <div>
-                  <div className="space-y-4">
-                    {/* Последнее обновление */}
-                    <div>
-                      <p className="text-sm text-gray-500 mb-2">Последнее обновление:</p>
-                      <p className="text-lg font-semibold text-indigo-600">
-                        {lastUpdate?.toLocaleTimeString('ru-RU')}
-                      </p>
-                    </div>
-                    
-                    {/* Статистика компактная */}
-                    {stats.total > 0 && (
-                      <div className="pt-3 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 mb-2">Выехало:</p>
-                        <div className="flex gap-3 text-sm">
-                          <div>
-                            <p className="font-bold text-green-600">{stats.exitedLastHour}</p>
-                            <p className="text-gray-500 text-xs">за час</p>
-                          </div>
-                          <div>
-                            <p className="font-bold text-purple-600">{stats.exitedLastDay}</p>
-                            <p className="text-gray-500 text-xs">за сутки</p>
-                          </div>
-                          {stats.avgPerHour > 0 && (
-                            <div>
-                              <p className="font-bold text-indigo-600">{stats.avgPerHour}/ч</p>
-                              <p className="text-gray-500 text-xs">средний</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  <p className="text-sm text-gray-500 mb-2">Последнее обновление:</p>
+                  <p className="text-lg font-semibold text-indigo-600">
+                    {lastUpdate?.toLocaleTimeString('ru-RU')}
+                  </p>
+                  {stats.total > 0 && (
+                    <p className="text-sm text-gray-700 mt-3">
+                      <span className="font-semibold text-indigo-600">{stats.total}</span> авто в очереди
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => fetchQueueData(selectedCheckpoint)}
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium mt-4"
+                  className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium"
                 >
                   <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                   Обновить
@@ -276,7 +253,7 @@ export default function BorderQueueMonitor() {
               <table className="w-full bg-teal-600 text-white">
                 <thead>
                   <tr className="bg-teal-600">
-                    <th className="px-4 py-3 text-left font-semibold">Порядок вызова</th>
+                    <th className="px-4 py-3 text-left font-semibold">№</th>
                     <th className="px-4 py-3 text-left font-semibold">Тип очереди</th>
                     <th className="px-4 py-3 text-left font-semibold">Рег.номер</th>
                     <th className="px-4 py-3 text-left font-semibold">Дата регистрации в ЗО</th>
@@ -287,7 +264,7 @@ export default function BorderQueueMonitor() {
                 <tbody>
                   {queue.slice(0, 50).map((car, idx) => (
                     <tr key={idx} className="border-b border-gray-300 bg-white text-gray-800 hover:bg-gray-50">
-                      <td className="px-4 py-3 font-semibold">{car.order_id}</td>
+                      <td className="px-4 py-3 font-semibold text-indigo-600">{idx + 1}</td>
                       <td className="px-4 py-3 text-sm">L Живая очередь</td>
                       <td className="px-4 py-3 font-mono font-semibold">
                         {car.regnum}
