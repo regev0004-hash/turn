@@ -7,6 +7,7 @@ export default function BorderQueueMonitor() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [stats, setStats] = useState({ inPP: 0, waiting: 0, registered: 0, changed: 0, completed: 0, total: 0, processedPerHour: 0, estimatedWaitMinutes: 0 });
 
   const checkpoints = [
     { id: '53d94097-2b34-11ec-8467-ac1f6bf889c0', name: 'Бенякони' },
@@ -16,6 +17,49 @@ export default function BorderQueueMonitor() {
     { id: '3b797d4d-706a-440f-a1a4-826c191e1e36', name: 'Брузги' },
     { id: 'ffe81c11-00d6-11e8-a967-b0dd44bde851', name: 'Григоровщина' }
   ];
+
+  // Сохранение и получение статистики
+  const saveStatistics = (checkpointId, completedCount) => {
+    const key = `stats_${checkpointId}`;
+    const history = JSON.parse(localStorage.getItem(key) || '[]');
+    const now = Date.now();
+    
+    history.push({ timestamp: now, completed: completedCount });
+    // Храним только данные за последние 24 часа
+    const filtered = history.filter(item => now - item.timestamp < 24 * 60 * 60 * 1000);
+    localStorage.setItem(key, JSON.stringify(filtered));
+  };
+
+  const getStatisticsData = (checkpointId) => {
+    const key = `stats_${checkpointId}`;
+    const history = JSON.parse(localStorage.getItem(key) || '[]');
+    const now = Date.now();
+    
+    // За последний час
+    const lastHour = history.filter(item => now - item.timestamp < 60 * 60 * 1000);
+    const exitedLastHour = lastHour.length > 0 
+      ? Math.max(...lastHour.map(h => h.completed)) - Math.min(...lastHour.map(h => h.completed))
+      : 0;
+    
+    // За последние 5 часов
+    const last5Hours = history.filter(item => now - item.timestamp < 5 * 60 * 60 * 1000);
+    const exitedLast5Hours = last5Hours.length > 0
+      ? Math.max(...last5Hours.map(h => h.completed)) - Math.min(...last5Hours.map(h => h.completed))
+      : 0;
+    const avgPer5Hours = last5Hours.length > 0 ? Math.round(exitedLast5Hours / 5) : 0;
+    
+    // За последние 24 часа
+    const exitedLastDay = history.length > 0
+      ? Math.max(...history.map(h => h.completed)) - Math.min(...history.map(h => h.completed))
+      : 0;
+    
+    return {
+      exitedLastHour,
+      avgPerHour: avgPer5Hours,
+      exitedLastDay,
+      totalInQueue: 0
+    };
+  };
 
   const fetchQueueData = async (checkpointId) => {
     setLoading(true);
@@ -30,6 +74,9 @@ export default function BorderQueueMonitor() {
       const jsonData = await response.json();
       setData(jsonData);
       setLastUpdate(new Date());
+      
+      // Расчет статистики
+      calculateStats(jsonData.carLiveQueue || []);
     } catch (err) {
       setError(err.message);
       setData(null);
@@ -58,16 +105,20 @@ export default function BorderQueueMonitor() {
   };
 
   // Расчет статистики
-  const calculateStats = () => {
-    const inPP = queue.filter(car => car.status === 3).length; // Вызван в ПП
-    const waiting = queue.filter(car => car.status === 2).length; // В ожидании
-    const registered = queue.filter(car => car.status === 1).length; // Зарегистрирован
-    const changed = queue.filter(car => car.status === 4).length; // Изменен
-    const completed = queue.filter(car => car.status === 5).length; // Завершен
+  const calculateStats = (queueData) => {
+    const inPP = queueData.filter(car => car.status === 3).length; // Вызван в ПП
+    const waiting = queueData.filter(car => car.status === 2).length; // В ожидании
+    const registered = queueData.filter(car => car.status === 1).length; // Зарегистрирован
+    const changed = queueData.filter(car => car.status === 4).length; // Изменен
+    const completed = queueData.filter(car => car.status === 5).length; // Завершен
+    
+    // Сохраняем статистику
+    saveStatistics(selectedCheckpoint, completed);
+    
+    // Получаем статистику за период
+    const statsData = getStatisticsData(selectedCheckpoint);
     
     // Оценка скорости обработки (машин в час)
-    // Примем что машина в ПП примерно 15 минут (0.25 часа)
-    // Если машин в ПП, то примерно столько же будет обработано в час
     const processedPerHour = Math.max(inPP * 4, 4); // минимум 4 машины в час
     
     // Примерное время ожидания для машин в очереди (в минутах)
@@ -76,19 +127,23 @@ export default function BorderQueueMonitor() {
       estimatedWaitMinutes = Math.ceil((waiting / processedPerHour) * 60);
     }
     
-    return {
+    const result = {
       inPP,
       waiting,
       registered,
       changed,
       completed,
-      total: queue.length,
+      total: queueData.length,
       processedPerHour,
-      estimatedWaitMinutes
+      estimatedWaitMinutes,
+      exitedLastHour: statsData.exitedLastHour,
+      avgPerHour: statsData.avgPerHour,
+      exitedLastDay: statsData.exitedLastDay
     };
+    
+    setStats(result);
+    return result;
   };
-
-  const stats = calculateStats();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -159,6 +214,39 @@ export default function BorderQueueMonitor() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Statistics */}
+        {info.name && stats.total > 0 && (
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Статистика выезда</h3>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <p className="text-sm text-gray-600 mb-2">Всего авто в очереди</p>
+                <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+                <p className="text-xs text-gray-500 mt-2">В системе сейчас</p>
+              </div>
+              
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <p className="text-sm text-gray-600 mb-2">Выехало в течении часа</p>
+                <p className="text-3xl font-bold text-green-600">{stats.exitedLastHour}</p>
+                <p className="text-xs text-gray-500 mt-2">За последний час</p>
+              </div>
+              
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                <p className="text-sm text-gray-600 mb-2">Выехало за сутки</p>
+                <p className="text-3xl font-bold text-purple-600">{stats.exitedLastDay}</p>
+                <p className="text-xs text-gray-500 mt-2">За 24 часа</p>
+              </div>
+            </div>
+            
+            {stats.avgPerHour > 0 && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm text-gray-600 mb-2">Средний темп (за последние 5 часов)</p>
+                <p className="text-2xl font-bold text-indigo-600">{stats.avgPerHour} авто в час</p>
+              </div>
+            )}
           </div>
         )}
 
