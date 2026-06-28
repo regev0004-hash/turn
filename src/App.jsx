@@ -19,45 +19,44 @@ export default function BorderQueueMonitor() {
   ];
 
   // Сохранение и получение статистики
-  const saveStatistics = (checkpointId, completedCount) => {
+  const saveStatistics = (checkpointId, completedCount, totalInQueue) => {
     const key = `stats_${checkpointId}`;
     const history = JSON.parse(localStorage.getItem(key) || '[]');
     const now = Date.now();
     
-    history.push({ timestamp: now, completed: completedCount });
+    history.push({ timestamp: now, completed: completedCount, total: totalInQueue });
     // Храним только данные за последние 24 часа
     const filtered = history.filter(item => now - item.timestamp < 24 * 60 * 60 * 1000);
     localStorage.setItem(key, JSON.stringify(filtered));
   };
 
-  const getStatisticsData = (checkpointId) => {
+  const getStatisticsData = (checkpointId, currentCompleted) => {
     const key = `stats_${checkpointId}`;
     const history = JSON.parse(localStorage.getItem(key) || '[]');
     const now = Date.now();
     
     // За последний час
     const lastHour = history.filter(item => now - item.timestamp < 60 * 60 * 1000);
-    const exitedLastHour = lastHour.length > 0 
+    const exitedLastHour = lastHour.length > 1
       ? Math.max(...lastHour.map(h => h.completed)) - Math.min(...lastHour.map(h => h.completed))
-      : 0;
+      : (currentCompleted || 0);
     
     // За последние 5 часов
     const last5Hours = history.filter(item => now - item.timestamp < 5 * 60 * 60 * 1000);
-    const exitedLast5Hours = last5Hours.length > 0
+    const exitedLast5Hours = last5Hours.length > 1
       ? Math.max(...last5Hours.map(h => h.completed)) - Math.min(...last5Hours.map(h => h.completed))
-      : 0;
-    const avgPer5Hours = last5Hours.length > 0 ? Math.round(exitedLast5Hours / 5) : 0;
+      : (currentCompleted || 0);
+    const avgPer5Hours = last5Hours.length > 0 ? Math.ceil(exitedLast5Hours / 5) : 0;
     
     // За последние 24 часа
-    const exitedLastDay = history.length > 0
+    const exitedLastDay = history.length > 1
       ? Math.max(...history.map(h => h.completed)) - Math.min(...history.map(h => h.completed))
-      : 0;
+      : (currentCompleted || 0);
     
     return {
-      exitedLastHour,
-      avgPerHour: avgPer5Hours,
-      exitedLastDay,
-      totalInQueue: 0
+      exitedLastHour: Math.max(0, exitedLastHour),
+      avgPerHour: Math.max(0, avgPer5Hours),
+      exitedLastDay: Math.max(0, exitedLastDay)
     };
   };
 
@@ -112,14 +111,14 @@ export default function BorderQueueMonitor() {
     const changed = queueData.filter(car => car.status === 4).length; // Изменен
     const completed = queueData.filter(car => car.status === 5).length; // Завершен
     
-    // Сохраняем статистику
-    saveStatistics(selectedCheckpoint, completed);
+    // Сохраняем статистику (используем inPP как выехавших - машины в ПП это те что выезжают)
+    saveStatistics(selectedCheckpoint, inPP, queueData.length);
     
     // Получаем статистику за период
-    const statsData = getStatisticsData(selectedCheckpoint);
+    const statsData = getStatisticsData(selectedCheckpoint, inPP);
     
     // Оценка скорости обработки (машин в час)
-    const processedPerHour = Math.max(inPP * 4, 4); // минимум 4 машины в час
+    const processedPerHour = Math.max(inPP * 4, 4);
     
     // Примерное время ожидания для машин в очереди (в минутах)
     let estimatedWaitMinutes = 0;
@@ -179,7 +178,7 @@ export default function BorderQueueMonitor() {
         {/* Checkpoint Info with Statistics */}
         {info.name && (
           <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-            <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">{info.name}</h2>
                 <div className="space-y-3">
@@ -199,55 +198,49 @@ export default function BorderQueueMonitor() {
               </div>
               <div className="flex flex-col justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 mb-2">Последнее обновление:</p>
-                  <p className="text-lg font-semibold text-indigo-600">
-                    {lastUpdate?.toLocaleTimeString('ru-RU')}
-                  </p>
+                  <div className="space-y-4">
+                    {/* Последнее обновление */}
+                    <div>
+                      <p className="text-sm text-gray-500 mb-2">Последнее обновление:</p>
+                      <p className="text-lg font-semibold text-indigo-600">
+                        {lastUpdate?.toLocaleTimeString('ru-RU')}
+                      </p>
+                    </div>
+                    
+                    {/* Статистика компактная */}
+                    {stats.total > 0 && (
+                      <div className="pt-3 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 mb-2">Выехало:</p>
+                        <div className="flex gap-3 text-sm">
+                          <div>
+                            <p className="font-bold text-green-600">{stats.exitedLastHour}</p>
+                            <p className="text-gray-500 text-xs">за час</p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-purple-600">{stats.exitedLastDay}</p>
+                            <p className="text-gray-500 text-xs">за сутки</p>
+                          </div>
+                          {stats.avgPerHour > 0 && (
+                            <div>
+                              <p className="font-bold text-indigo-600">{stats.avgPerHour}/ч</p>
+                              <p className="text-gray-500 text-xs">средний</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => fetchQueueData(selectedCheckpoint)}
                   disabled={loading}
-                  className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium"
+                  className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium mt-4"
                 >
                   <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                   Обновить
                 </button>
               </div>
             </div>
-
-            {/* Statistics */}
-            {stats.total > 0 && (
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Статистика выезда</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <p className="text-sm text-gray-600 mb-2">Всего авто</p>
-                    <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
-                    <p className="text-xs text-gray-500 mt-2">В системе</p>
-                  </div>
-                  
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <p className="text-sm text-gray-600 mb-2">За час</p>
-                    <p className="text-2xl font-bold text-green-600">{stats.exitedLastHour}</p>
-                    <p className="text-xs text-gray-500 mt-2">Выехало</p>
-                  </div>
-                  
-                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                    <p className="text-sm text-gray-600 mb-2">За сутки</p>
-                    <p className="text-2xl font-bold text-purple-600">{stats.exitedLastDay}</p>
-                    <p className="text-xs text-gray-500 mt-2">Выехало</p>
-                  </div>
-                  
-                  {stats.avgPerHour > 0 && (
-                    <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
-                      <p className="text-sm text-gray-600 mb-2">Средний темп</p>
-                      <p className="text-2xl font-bold text-indigo-600">{stats.avgPerHour}</p>
-                      <p className="text-xs text-gray-500 mt-2">авто/час</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
