@@ -62,6 +62,8 @@ export default function BorderQueueMonitor() {
     const inPP = queue.filter(car => car.status === 3).length; // Вызван в ПП
     const waiting = queue.filter(car => car.status === 2).length; // В ожидании
     const registered = queue.filter(car => car.status === 1).length; // Зарегистрирован
+    const changed = queue.filter(car => car.status === 4).length; // Изменен
+    const completed = queue.filter(car => car.status === 5).length; // Завершен
     
     // Оценка скорости обработки (машин в час)
     // Примем что машина в ПП примерно 15 минут (0.25 часа)
@@ -78,6 +80,8 @@ export default function BorderQueueMonitor() {
       inPP,
       waiting,
       registered,
+      changed,
+      completed,
       total: queue.length,
       processedPerHour,
       estimatedWaitMinutes
@@ -160,59 +164,6 @@ export default function BorderQueueMonitor() {
 
         {/* Queue Status */}
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-800">
-              Очередь легковых авто
-            </h2>
-            <div className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full font-bold">
-              {queue.length} машин
-            </div>
-          </div>
-
-          {/* Statistics */}
-          {queue.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <p className="text-sm text-gray-600 mb-1">В ПП сейчас</p>
-                <p className="text-2xl font-bold text-green-600">{stats.inPP}</p>
-                <p className="text-xs text-gray-500 mt-2">Обрабатываются</p>
-              </div>
-              
-              <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-                <p className="text-sm text-gray-600 mb-1">В очереди</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.waiting}</p>
-                <p className="text-xs text-gray-500 mt-2">Ждут своей очереди</p>
-              </div>
-              
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <p className="text-sm text-gray-600 mb-1">Машин/час</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.processedPerHour}</p>
-                <p className="text-xs text-gray-500 mt-2">Средняя скорость</p>
-              </div>
-              
-              <div className={`rounded-lg p-4 border ${
-                stats.estimatedWaitMinutes > 60 
-                  ? 'bg-red-50 border-red-200' 
-                  : stats.estimatedWaitMinutes > 30 
-                  ? 'bg-orange-50 border-orange-200'
-                  : 'bg-green-50 border-green-200'
-              }`}>
-                <p className="text-sm text-gray-600 mb-1">Ожидание</p>
-                <p className={`text-2xl font-bold ${
-                  stats.estimatedWaitMinutes > 60 
-                    ? 'text-red-600' 
-                    : stats.estimatedWaitMinutes > 30 
-                    ? 'text-orange-600'
-                    : 'text-green-600'
-                }`}>
-                  {stats.estimatedWaitMinutes < 60 
-                    ? `${stats.estimatedWaitMinutes}м` 
-                    : `${Math.floor(stats.estimatedWaitMinutes / 60)}ч`}
-                </p>
-                <p className="text-xs text-gray-500 mt-2">Примерное время</p>
-              </div>
-            </div>
-          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3 mb-4">
@@ -240,34 +191,45 @@ export default function BorderQueueMonitor() {
 
           {!loading && queue.length > 0 && (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full bg-teal-600 text-white">
                 <thead>
-                  <tr className="bg-gray-50 border-b-2 border-gray-200">
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">#</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Номер</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Статус</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Время регистрации</th>
+                  <tr className="bg-teal-600">
+                    <th className="px-4 py-3 text-left font-semibold">Порядок вызова</th>
+                    <th className="px-4 py-3 text-left font-semibold">Тип очереди</th>
+                    <th className="px-4 py-3 text-left font-semibold">Рег.номер</th>
+                    <th className="px-4 py-3 text-left font-semibold">Дата регистрации в ЗО</th>
+                    <th className="px-4 py-3 text-left font-semibold">Статус изменен</th>
+                    <th className="px-4 py-3 text-left font-semibold">Статус</th>
                   </tr>
                 </thead>
                 <tbody>
                   {queue.slice(0, 50).map((car, idx) => (
-                    <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50">
-                      <td className="px-4 py-3 font-bold text-indigo-600">{car.order_id}</td>
-                      <td className="px-4 py-3 font-mono font-semibold text-gray-800">
+                    <tr key={idx} className="border-b border-gray-300 bg-white text-gray-800 hover:bg-gray-50">
+                      <td className="px-4 py-3 font-semibold">{car.order_id}</td>
+                      <td className="px-4 py-3 text-sm">L Живая очередь</td>
+                      <td className="px-4 py-3 font-mono font-semibold">
                         {car.regnum}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {car.registration_date}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {car.changed_date}
                       </td>
                       <td className="px-4 py-3">
                         {(() => {
                           const statusInfo = getStatusInfo(car.status);
                           return (
-                            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusInfo.color}`}>
-                              {statusInfo.icon} {statusInfo.label}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {car.status === 3 && <span className="w-3 h-3 bg-green-500 rounded-full"></span>}
+                              {car.status === 2 && <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>}
+                              {car.status === 4 && <span className="w-3 h-3 bg-orange-500 rounded-full"></span>}
+                              {car.status === 1 && <span className="w-3 h-3 bg-blue-500 rounded-full"></span>}
+                              {car.status === 5 && <span className="w-3 h-3 bg-gray-500 rounded-full"></span>}
+                              <span className="text-sm font-medium">{statusInfo.label}</span>
+                            </div>
                           );
                         })()}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        {car.registration_date}
                       </td>
                     </tr>
                   ))}
